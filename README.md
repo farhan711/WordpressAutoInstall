@@ -1,4 +1,4 @@
-# wordpresstask
+# Wordpresstask
 
 1) Your script will check if PHP, Mysql & Nginx are installed. If not present, missing packages will be installed.
 
@@ -10,7 +10,7 @@
 
 5) Download WordPress latest version from http://wordpress.org/latest.zip and unzip it locally in example.com document root.
 
-6)Create a new mysql database for new WordPress. (database name “example.com_db” )
+6) Create a new mysql database for new WordPress. (database name “example.com_db” )
 
 7) Create wp-config.php with proper DB configuration. (You can use wp-config-sample.php as your template)
 
