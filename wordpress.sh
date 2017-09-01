@@ -1,15 +1,4 @@
-#!/bin/bash
-#This program is free software: you can redistribute it and/or modify it
-#under the terms of the GNU General Public License as published by the
-#Free Software Foundation, either version 2 of the License, or (at your option)
-#any later version.
-#
-#This program is distributed in the hope that it will be useful, but WITHOUT ANY
-#WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#See the GNU General Public License for more details.
-#
-#You should have received a copy of the GNU General Public License along with this program.
-#If not, see http://www.gnu.org/licenses/.
+
 #defining TEMP
 TEMP="`mktemp`"
 #Defining echo function
@@ -30,17 +19,17 @@ TEMP="`mktemp`"
                                         echo $(tput setaf 1)$@$(tput sgr0)
                         }
 clear
-                        ee_echo "The Magic  begins"
+                        ee_echo "Here We Go!"
 #Checking User Authentication
         if [[ $EUID -eq 0 ]]; then
                 ee_info "Thank you for giving me a SUDO user privilege"
         else
                 ee_fail "I need a SUDO privilage !! :( "
-                ee_fail "Use: sudo bash RTcamAssign2.sh"
+                ee_fail "Use: sudo bash wordpress.sh"
         exit 1
         fi
 
-ee_info "OH!! You have passed the Authentication part."
+ee_info "You have passed the Authentication part."
 
 #UPDATING UBUNTU
 ee_echo "Let me Update your System. Please wait..."
@@ -49,29 +38,29 @@ ee_info "Finally this system is ready for installing PHP,MYSQL,NGINX $ WORDPRESS
 #CHECKING DPKG PACKAGE IS INSTALLED OR NOT
                 ee_echo "Checking whether you have dpkg installed or not"
         if [[ ! -x /usr/bin/dpkg ]]; then
-                ee_echo "Oh noo!! you don't have dpkg package. Let me install it for you, please wait.."
+                ee_echo "You don't have dpkg package. Let me install it for you, please wait.."
         apt-get -y install dpkg &>> /dev/null
         else
-                ee_info "OH!! you already have dpkg installed"
+                ee_info "You already have dpkg installed"
 fi
 #CHEKING WGET PACKAGE IS INSTALLED OR NOT
                 ee_echo "Checking whether you have wget package is installed or not"
         if [[ ! -x /usr/bin/wget ]]; then
-                ee_fail "SORRY! You don't have wget package installed."
+                ee_fail "You don't have wget package installed."
                 ee_echo "Let me install the wget packages on your system."
         apt-get -y install wget &>> /dev/null
         else
-                ee_info "OH!! You already have wget installed."
+                ee_info "You already have wget installed."
         fi
 #CHEKING TAR PACKAGE IS INSTALLED OR NOT
                 ee_echo "Checking whether you have tar packages is installed or not."
         dpkg -s tar &>> /dev/null
         if [ $? -ne 0 ]; then
-                ee_fail "SORRY! You don't have tar package installed."
+                ee_fail "You don't have tar package installed."
                 ee_echo "Let me install the tar packages on your system."
         apt-get -y install tar &>> /dev/null
         else
-                ee_info "OH!! You already have tar installed."
+                ee_info "You already have tar installed."
         fi
 #CHECKING PHP5 PACKAGES/DEPENDENCIES/INSTALLING
                 ee_echo "Checking whether you have PHP and it's dependencies installed or not"
@@ -83,7 +72,7 @@ fi
                 ee_fail "Something is wrong in PHP configuration please check the dpendencies"
                 fi
         else
-                ee_info "OH!! you have PHP and it's dependencies already installed"
+                ee_info "you have PHP and it's dependencies already installed"
         fi
 #CHECKING MYSQL-SERVER PACKAGES/DEPENDENCIES/INSTALLING
                 ee_echo "Checking whether you have MYSQL installed or not"
@@ -97,7 +86,7 @@ fi
         apt-get install -y mysql-server &>> /dev/null
                 ee_fail " Your MySQL PASSWORD is = $password "
         else
-                ee_info "Dam!! MYSQL is already installed"
+                ee_info "MYSQL is already installed"
         fi
 #CHECKING NGINX PACKAGES/DEPENDENCIES/INSTALLATION
                 ee_echo "Checking whether you have NGINX installed or not"
@@ -106,11 +95,11 @@ fi
                 ee_fail "I need to install nginx ,please wait.."
                 apt-get install -y nginx &>> /dev/null
         else
-                ee_info " OH!! Nginx is already installed"
+                ee_info "Nginx is already installed"
         fi
 #ASKING USER FOR DOMAIN NAME
         for (( ;; )); do
-        read -p "Enter the domain name (eg.vipullinux.wordpress.com): " example_com
+        read -p "Enter the domain name (like -farhanansari.com): " example_com
         grep $example_com /etc/hosts &>> /dev/null
         if [ $? -eq 0 ]; then
         ee_fail "SORRY This Domain name is already been taken"
@@ -163,7 +152,8 @@ EOF
                 ee_fail "ERROR! Use:>>>sudo nginx -t<<<< in Terminal"
         fi
         service php7.0-fpm restart >> $TEMP 2>&1
-        ee_fail "CHILL !! The above is your config file."
+        ee_fail "The above is your config file."
+        
 #DOWNLOADING LATEST VERSION FROM WORDPRESS.ORG THEN UNZIP IT LOCALLY IN EXAMPLE COM/ DOCUMENT ROOM.
                 ee_echo " I am going to download wordpress from http://wordpress.org/latest.tar.gip please wait.."
          cd ~ && wget http://wordpress.org/latest.tar.gz >> $TEMP 2>&1
@@ -197,7 +187,7 @@ EOF
                 ee_info "And Database password = $password"
                 ee_fail "Kindly please note it down your MYSQL-ROOT password = $db_root_passwd "
         else
-                ee_fail "Ops!! something goes wrong, CONTACT sir.isac@gmail.com"
+                ee_fail "something goes wrong, CONTACT farhan7015@gmail.com"
         fi
 #CREATING WP-CONFIG.PHP WITH PROPER DB CONFIGURATION.
         cp /var/www/$example_com/wp-config-sample.php /var/www/$example_com/wp-config.php
@@ -233,5 +223,5 @@ sed -i 's/\(.*'\''NONCE_SALT'\'',\)\(.*\)/\1'\''k:d6U3,|YiE^36Un-8xl99?Uz|M[x#{y
         fi
         service php7.0-fpm restart >> $TEMP 2>&1
 
-ee_info "Kindly open your browser with this link >>> http://$example_com And perform rest of the operation. "
+ee_info "Please open your browser with this link >>> http://$example_com And perform rest of the operation. "
 
