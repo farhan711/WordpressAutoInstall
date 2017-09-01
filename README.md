@@ -43,7 +43,7 @@ chmod +x wordpress.sh
 ./wordpress.sh
 ```
 
-# Compatibiltiy
+# Compatibility
 Tested and Deployed on AWS using Ubuntu 16.04.2 
 
-Check live link here[here:http://13.126.108.99/](http://13.126.108.99/) 
+Check live link here [here:http://13.126.108.99/](http://13.126.108.99/) 
