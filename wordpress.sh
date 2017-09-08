@@ -146,6 +146,7 @@ server {
 EOF
         ln -sF /etc/nginx/sites-available/$example_com /etc/nginx/sites-enabled/$example_com
         rm -rf /etc/nginx/sites-available/default &>> /dev/null
+        apt-get remove -y apache2 &>> /dev/null
         service nginx restart >> $TEMP 2>&1
         if [ $? -eq 0 ]; then
                 ee_info "Nginx is successfull installed"
