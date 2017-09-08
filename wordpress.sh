@@ -21,7 +21,7 @@ clear
                         ee_echo "Here We Go..."
 #Checking User Authentication
         if [[ $EUID -eq 0 ]]; then
-                ee_info "Thank you for giving me a SUDO user privilege"
+                ee_info "Thank you for providing me a SUDO user privilege"
         else
                 ee_fail "I need a SUDO privilage !! :( "
                 ee_fail "Use: sudo bash wordpress.sh"
@@ -186,7 +186,7 @@ EOF
                 ee_info "And Database password = $password"
                 ee_fail "Kindly please note it down your MYSQL-ROOT password = $db_root_passwd "
         else
-                ee_fail "Ops!! something goes wrong"
+                ee_fail "Something went wrong"
         fi
 #CREATING WP-CONFIG.PHP WITH PROPER DB CONFIGURATION.
         cp /var/www/$example_com/wp-config-sample.php /var/www/$example_com/wp-config.php
