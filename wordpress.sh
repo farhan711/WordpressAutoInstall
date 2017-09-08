@@ -152,7 +152,7 @@ EOF
                 ee_fail "ERROR! Use:>>>sudo nginx -t<<<< in Terminal"
         fi
         service php7.0-fpm restart >> $TEMP 2>&1
-        ee_fail "CHILL !! The above is your config file."
+        ee_fail "The above is your config file."
 #DOWNLOADING LATEST VERSION FROM WORDPRESS.ORG THEN UNZIP IT LOCALLY IN EXAMPLE COM/ DOCUMENT ROOM.
                 ee_echo " I am going to download wordpress from http://wordpress.org/latest.tar.gip please wait.."
          cd ~ && wget http://wordpress.org/latest.tar.gz >> $TEMP 2>&1
