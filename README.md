@@ -27,7 +27,7 @@ sudo apt-get remove --purge <!Nginx||WebServerPackageName>
 sudo apt-get autoremove
 sudo apt-get autoclean
 ```
-# Mysql-server must not installed for old Run.sh
+# Mysql-server must not installed 
 ```
 sudo apt-get remove --purge mysql-server 
 sudo apt-get autoremove
@@ -46,4 +46,19 @@ chmod +x wordpress.sh
 # Compatibility
 Tested and Deployed on AWS using [VM] Ubuntu 16.04.2 
 
-Check live link here [here:http://13.126.108.99/](http://13.126.108.99/) 
+Check live link here [http://52.66.136.176](http://52.66.136.176) 
+
+
+Check It's Running on NginX Server 
+
+```netstat -tlnp```
+```
+Active Internet connections (only servers)
+Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name
+tcp        0      0 127.0.0.1:3306          0.0.0.0:*               LISTEN      13338/mysqld
+tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN      14623/nginx -g daem
+tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN      1291/sshd
+tcp6       0      0 :::22                   :::*                    LISTEN      1291/sshd
+
+```
+This above result is of installed state Link : [http://52.66.136.176](http://52.66.136.176) 
