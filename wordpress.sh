@@ -18,7 +18,7 @@ TEMP="`mktemp`"
                                         echo $(tput setaf 1)$@$(tput sgr0)
                         }
 clear
-                        ee_echo "The Magic  begins"
+                        ee_echo "Here We Go..."
 #Checking User Authentication
         if [[ $EUID -eq 0 ]]; then
                 ee_info "Thank you for giving me a SUDO user privilege"
@@ -28,7 +28,7 @@ clear
         exit 1
         fi
 
-ee_info "OH!! You have passed the Authentication part."
+ee_info "You have passed the Authentication part."
 
 #UPDATING UBUNTU
 ee_echo "Let me Update your System. Please wait..."
@@ -37,7 +37,7 @@ ee_info "Finally this system is ready for installing PHP,MYSQL,NGINX $ WORDPRESS
 #CHECKING DPKG PACKAGE IS INSTALLED OR NOT
                 ee_echo "Checking whether you have dpkg installed or not"
         if [[ ! -x /usr/bin/dpkg ]]; then
-                ee_echo "Oh noo!! you don't have dpkg package. Let me install it for you, please wait.."
+                ee_echo "You don't have dpkg package. Let me install it for you, please wait.."
         apt-get -y install dpkg &>> /dev/null
         else
                 ee_info "You already have dpkg installed"
