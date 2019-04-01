@@ -1,225 +1,201 @@
-
-TEMP="`mktemp`"
-#Defining echo function
-#defining white color for Success.
-        function ee_info()
-        {
-                        echo $(tput setaf 7)$@$(tput sgr0)
-        }
-
-        #defining blue color for Running.
-                function ee_echo()
-                {
-                                echo $(tput setaf 4)$@$(tput sgr0)
-                }
-                #Defining red color for Error
-                        function ee_fail()
-                        {
-                                        echo $(tput setaf 1)$@$(tput sgr0)
-                        }
+#!/bin/bash
+# The following code is a combination of things I have found on the internet and combined them 
+# for a quick installation script to automate WordPress installation with Nginx, MariaDB 10.1, PHP7.2 on Ubuntu 18.04 Bionics.
+# 
+#
 clear
-                        ee_echo "Here We Go..."
-#Checking User Authentication
-        if [[ $EUID -eq 0 ]]; then
-                ee_info "Thank you for providing me a SUDO user privilege"
-        else
-                ee_fail "I need a SUDO privilage !! :( "
-                ee_fail "Use: sudo bash wordpress.sh"
-        exit 1
-        fi
+echo "Please provide your domain name without the www. (e.g. mydomain.com)"
+read -p "Type your domain name, then press [ENTER] : " MY_DOMAIN
+echo "Please provide a name for the DATABASE"
+read -p "Type your database name, then press [ENTER] : " dbname
+echo "Please provide a DATABASE username"
+read -p "Type your database username, then press [ENTER] : " dbuser
+echo "Please provide a MariaDB version (eg: 10.3 or 10.4)"
+read -p "Choose your MariaDB Version [ENTER] : " MDB_VERSION
+clear
+read -t 30 -p "Thank you. Please press [ENTER] continue or [Control]+[C] to cancel"
 
-ee_info "You have passed the Authentication part."
+#Add MariaDB Repository
+sudo apt-get install -y software-properties-common
+sudo apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 0xF1656F24C74CD1D8
+sudo echo "deb [arch=amd64,arm64,ppc64el] http://mirrors.accretive-networks.net/mariadb/repo/$MDB_VERSION/ubuntu bionic main"  | sudo tee -a /etc/apt/sources.list
+sudo apt-get update && sudo apt-get upgrade -y
 
-#UPDATING UBUNTU
-ee_echo "Let me Update your System. Please wait..."
-        apt-get update &>> /dev/null
-ee_info "Finally this system is ready for installing PHP,MYSQL,NGINX $ WORDPRESS"
-#CHECKING DPKG PACKAGE IS INSTALLED OR NOT
-                ee_echo "Checking whether you have dpkg installed or not"
-        if [[ ! -x /usr/bin/dpkg ]]; then
-                ee_echo "You don't have dpkg package. Let me install it for you, please wait.."
-        apt-get -y install dpkg &>> /dev/null
-        else
-                ee_info "You already have dpkg installed"
+#Install nginx and php7.2
+apt install nginx nginx-extras -y
+apt install php-fpm php-mysql php-xml php-mbstring php-common php-curl php-gd php-zip php-soap -y
+phpenmod mbstring 
+
+#---Following is optional changes to the PHP perimeters that are typically required for WP + Woo themes
+perl -pi -e "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/g" /etc/php/7.2/fpm/php.ini
+perl -pi -e "s/.*max_execution_time.*/max_execution_time = 120/;" /etc/php/7.2/fpm/php.ini
+perl -pi -e "s/.*max_input_time.*/max_input_time = 120/;" /etc/php/7.2/fpm/php.ini
+perl -pi -e "s/.*post_max_size.*/post_max_size = 100M/;" /etc/php/7.2/fpm/php.ini
+perl -pi -e "s/.*upload_max_filesize.*/upload_max_filesize = 100M/;" /etc/php/7.2/fpm/php.ini
+clear
+#---Editing Nginx Server Block----
+wget https://raw.githubusercontent.com/ridgegate/Ubuntu18.04-LEMP-Mariadb-Wordpress-bashscript/master/nginx-default-block
+mv ./nginx-default-block /etc/nginx/sites-available/$MY_DOMAIN
+perl -pi -e "s/domain.com/$MY_DOMAIN/g" /etc/nginx/sites-available/$MY_DOMAIN
+perl -pi -e "s/www.domain.com/www.$MY_DOMAIN/g" /etc/nginx/sites-available/$MY_DOMAIN
+perl -pi -e "s/domain_directory/$MY_DOMAIN/g" /etc/nginx/sites-available/$MY_DOMAIN
+sudo ln -s /etc/nginx/sites-available/$MY_DOMAIN /etc/nginx/sites-enabled/
+sudo unlink /etc/nginx/sites-enabled/default
+clear
+
+# -- Please chang/remove this section according to your needs --
+sed -i '43i\\n\t##\n\t# Set Client Body Size\n\t##\n\tclient_body_buffer_size 100M;\n\tclient_max_body_size 100M;\n\n\t##\n\t# Fastcgi Buffer Increase\n\t##\n\tfastcgi_buffers 8 16k;\n\tfastcgi_buffer_size 32k;' /etc/nginx/nginx.conf
+clear
+#----------------------------------------------------------------
+
+service nginx restart
+service php7.2-fpm restart
+clear
+
+export DEBIAN_FRONTEND=noninteractive
+sudo debconf-set-selections <<< "mariadb-server-$MDB_VERSION mysql-server/root_password password PASS"
+sudo debconf-set-selections <<< "mariadb-server-$MDB_VERSION mysql-server/root_password_again password PASS"
+
+apt install mariadb-client mariadb-server expect -y
+CURRENT_MYSQL_PASSWORD='PASS'
+NEW_MYSQL_PASSWORD=$(openssl rand -base64 29 | tr -d "=+/" | cut -c1-25)
+
+if [[ "$MDB_VERSION" < "10.4" ]]
+then
+    SECURE_MYSQL=$(sudo expect -c "
+    set timeout 3
+    spawn mysql_secure_installation
+    expect \"Enter current password for root (enter for none):\"
+    send \"$CURRENT_MYSQL_PASSWORD\r\"
+    expect \"root password?\"
+    send \"y\r\"
+    expect \"New password:\"
+    send \"$NEW_MYSQL_PASSWORD\r\"
+    expect \"Re-enter new password:\"
+    send \"$NEW_MYSQL_PASSWORD\r\"
+    expect \"Remove anonymous users?\"
+    send \"y\r\"
+    expect \"Disallow root login remotely?\"
+    send \"y\r\"
+    expect \"Remove test database and access to it?\"
+    send \"y\r\"
+    expect \"Reload privilege tables now?\"
+    send \"y\r\"
+    expect eof
+    ")
+  clear
+  echo "${SECURE_MYSQL}"
+else 
+    SECURE_MYSQL=$(sudo expect -c "
+    set timeout 3
+    spawn mysql_secure_installation
+    expect \"Enter current password for root (enter for none):\"
+    send \"$CURRENT_MYSQL_PASSWORD\r\"
+    expect \"Switch to unix_socket authentication \"
+    send \"n\r\"
+    expect \"root password?\"
+    send \"y\r\"
+    expect \"New password:\"
+    send \"$NEW_MYSQL_PASSWORD\r\"
+    expect \"Re-enter new password:\"
+    send \"$NEW_MYSQL_PASSWORD\r\"
+    expect \"Remove anonymous users?\"
+    send \"y\r\"
+    expect \"Disallow root login remotely?\"
+    send \"y\r\"
+    expect \"Remove test database and access to it?\"
+    send \"y\r\"
+    expect \"Reload privilege tables now?\"
+    send \"y\r\"
+    expect eof
+    ")
+  clear
+  echo "${SECURE_MYSQL}"
 fi
-#CHEKING WGET PACKAGE IS INSTALLED OR NOT
-                ee_echo "Checking whether you have wget package is installed or not"
-        if [[ ! -x /usr/bin/wget ]]; then
-                ee_fail "You don't have wget package installed."
-                ee_echo "Let me install the wget packages on your system."
-        apt-get -y install wget &>> /dev/null
-        else
-                ee_info "You already have wget installed."
-        fi
-#CHEKING TAR PACKAGE IS INSTALLED OR NOT
-                ee_echo "Checking whether you have tar packages is installed or not."
-        dpkg -s tar &>> /dev/null
-        if [ $? -ne 0 ]; then
-                ee_fail "You don't have tar package installed."
-                ee_echo "Let me install the tar packages on your system."
-        apt-get -y install tar &>> /dev/null
-        else
-                ee_info "You already have tar installed."
-        fi
-#CHECKING PHP7 PACKAGES/DEPENDENCIES/INSTALLING
-                ee_echo "Checking whether you have PHP and it's dependencies installed or not"
-        dpkg -s php7.0 &>> /dev/null && dpkg -s php7.0-fpm &>> /dev/null dpkg -s php7.0-mysql &>> /dev/null
-        if [ $? -ne 0 ]; then
-                ee_fail "I need to install php7.0 with it's dependencies, please wait.."
-        apt-get -y install php7.0 &>> /dev/null && apt-get -y install php7.0-fpm &>> /dev/null && apt-get -y install php7.0-mysql &>> /dev/null
-                if [ $? -ne 0 ]; then
-                ee_fail "Something is wrong in PHP configuration please check the dependencies...."
-                fi
-        else
-                ee_info "You have PHP and it's dependencies already installed"
-        fi
-#CHECKING MYSQL-SERVER PACKAGES/DEPENDENCIES/INSTALLING
-                ee_echo "Checking whether you have MYSQL installed or not"
-        dpkg -s mysql-server &>> /dev/null
-        if [ $? -ne 0 ]; then
-                ee_fail "I need to install mysql-server, please wait..."
-        #GENERATING MY-SQL-ROOT PASSWORD
-        password=$(date | md5sum | head -c 9)
-        echo mysql-server mysql-server/root_password password $password | sudo debconf-set-selections
-        echo mysql-server mysql-server/root_password_again password $password | sudo debconf-set-selections
-        apt-get install -y mysql-server &>> /dev/null
-                ee_fail " Your MySQL PASSWORD is = $password "
-        else
-                ee_info "MYSQL is already installed"
-        fi
-#CHECKING NGINX PACKAGES/DEPENDENCIES/INSTALLATION
-                ee_echo "Checking whether you have NGINX installed or not"
-        dpkg -s nginx &>> /dev/null
-        if [ $? -ne 0 ]; then
-                ee_fail "I need to install nginx ,please wait.."
-                apt-get install -y nginx &>> /dev/null
-        else
-                ee_info "Nginx is already installed"
-        fi
-#ASKING USER FOR DOMAIN NAME
-        for (( ;; )); do
-        read -p "Enter the domain name (eg.wordpress.com): " example_com
-        grep $example_com /etc/hosts &>> /dev/null
-        if [ $? -eq 0 ]; then
-        ee_fail "SORRY This Domain name is already been taken"
-        else
-        break
-        fi
-        done
-        ee_info "Final domain name is $example_com"
-        echo "127.0.0.1 $example_com" | tee -a /etc/hosts &>> /dev/null
-#CREATING NGINX CONFIG FILES FOR EXAMPLE.COM
-        tee /etc/nginx/sites-available/$example_com << EOF
-server {
-        listen   80;
 
 
-        root /var/www/$example_com;
-        index index.php index.html index.htm;
+# Create WordPress MySQL database
+userpass=$(openssl rand -base64 29 | tr -d "=+/" | cut -c1-25)
+echo "CREATE DATABASE $dbname;" | sudo mysql -u root -p$NEW_MYSQL_PASSWORD
+echo "CREATE USER '$dbuser'@'localhost' IDENTIFIED BY '$userpass';" | sudo mysql -u root -p$NEW_MYSQL_PASSWORD
+echo "GRANT ALL PRIVILEGES ON $dbname.* TO '$dbuser'@'localhost';" | sudo mysql -u root -p$NEW_MYSQL_PASSWORD
+echo "FLUSH PRIVILEGES;" | sudo mysql -u root -p$NEW_MYSQL_PASSWORD
+echo "delete from mysql.user where user='mysql';" | sudo mysql -u root -p$NEW_MYSQL_PASSWORD
+clear
 
-        server_name $example_com;
+#Install WordPress
+apt purge expect -y
+apt autoremove -y
+apt autoclean -y
+wget https://wordpress.org/latest.tar.gz
+tar xzvf latest.tar.gz
+cp ./wordpress/wp-config-sample.php ./wordpress/wp-config.php
+touch ./wordpress/.htaccess
+chmod 660 ./wordpress/.htaccess
+mkdir ./wordpress/wp-content/upgrade
+mkdir /var/www/html/$MY_DOMAIN
+cp -a ./wordpress/. /var/www/html/$MY_DOMAIN
+chown -R www-data /var/www/html/$MY_DOMAIN
 
-        location / {
-                try_files \$uri \$uri/ /index.php?q=\$uri&\$args;
-        }
+find /var/www/html/$MY_DOMAIN -type d -exec chmod g+s {} \;
+chmod g+w /var/www/html/$MY_DOMAIN/wp-content
+chmod -R g+w /var/www/html/$MY_DOMAIN/wp-content/themes
+chmod -R g+w /var/www/html/$MY_DOMAIN/wp-content/plugins
+clear
 
-        error_page 404 /404.html;
+#Change wp-config.php data
+# -- Please chang/remove this section according to your needs --
+sed -i '20i//Define Memory Limit' /var/www/html/$MY_DOMAIN/wp-config.php
+sed -i '21idefine('\'WP_MEMORY_LIMIT\'', '\'200M\'');' /var/www/html/$MY_DOMAIN/wp-config.php
+sed -i '22idefine('\'WP_MAX_MEMORY_LIMIT\'', '\'256M\'');' /var/www/html/$MY_DOMAIN/wp-config.php
 
-        error_page 500 502 503 504 /50x.html;
-        location = /50x.html {
-              root /usr/share/nginx/www;
-        }
+sed -i '23i//Disable Theme Editor' /var/www/html/$MY_DOMAIN/wp-config.php
+sed -i '24idefine('\'DISALLOW_FILE_EDIT\'', '\'true\'');' /var/www/html/$MY_DOMAIN/wp-config.php
+# -------------------------------------------------------------
+TAB_PREF=$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 5 | head -n 1)_ #randomize wordpress table prefix
+perl -pi -e "s/wp_/$TAB_PREF/g" /var/www/html/$MY_DOMAIN/wp-config.php
+perl -pi -e "s/database_name_here/$dbname/g" /var/www/html/$MY_DOMAIN/wp-config.php
+perl -pi -e "s/username_here/$dbuser/g" /var/www/html/$MY_DOMAIN/wp-config.php
+perl -pi -e "s/password_here/$userpass/g" /var/www/html/$MY_DOMAIN/wp-config.php
+SALTS=$(curl -s https://api.wordpress.org/secret-key/1.1/salt/)
+while read -r SALT; do
+SEARCH="define( '$(echo "$SALT" | cut -d "'" -f 2)"
+REPLACE=$(echo "$SALT" | cut -d "'" -f 4)
+echo "Replacing: $SEARCH"
+sed -i "/^$SEARCH/s/put your unique phrase here/$(echo $REPLACE | sed -e 's/\\/\\\\/g' -e 's/\//\\\//g' -e 's/&/\\\&/g')/" /var/www/html/wp-config.php
+done <<< "$SALTS"
 
-        # pass the PHP scripts to FastCGI server listening on 127.0.0.1:9000
-        location ~ \.php\$ {
-                try_files \$uri =404;
-                #fastcgi_pass 127.0.0.1:9000;
-                # With php7.0-fpm:
-                fastcgi_pass unix:/run/php/php7.0-fpm.sock;
-                fastcgi_index index.php;
-                include fastcgi.conf;
-                include fastcgi_params;
-                 }
-   }
-EOF
-        ln -sF /etc/nginx/sites-available/$example_com /etc/nginx/sites-enabled/$example_com
-        rm -rf /etc/nginx/sites-available/default &>> /dev/null
-        apt-get remove -y apache2 &>> /dev/null
-        service nginx restart >> $TEMP 2>&1
-        if [ $? -eq 0 ]; then
-                ee_info "Nginx is successfull installed"
-        else
-                ee_fail "ERROR! Use:>>>sudo nginx -t<<<< in Terminal"
-        fi
-        service php7.0-fpm restart >> $TEMP 2>&1
-        ee_fail "The above is your config file."
-#DOWNLOADING LATEST VERSION FROM WORDPRESS.ORG THEN UNZIP IT LOCALLY IN EXAMPLE COM/ DOCUMENT ROOM.
-                ee_echo " I am going to download wordpress from http://wordpress.org/latest.tar.gip please wait.."
-         cd ~ && wget http://wordpress.org/latest.tar.gz >> $TEMP 2>&1
-        if [ $? -eq 0 ]; then
-                ee_info "Latest wordpress has been downloaded Successfully"
-        else
-                ee_fail "ERROR:Failed to get latest tar file, Please check log files $TEMP" 1>&2
-        fi
-#EXTRACTING THE LATEST TAR FILES
-                ee_echo "Let me extract the tar file"
-        cd ~ && tar xzvf latest.tar.gz &>> /dev/null && mv wordpress $example_com &>> /dev/null
-        if [ $? -eq 0 ]; then
-                ee_info "Your file has been rename and extracted Successfully"
-        cp -rf $example_com /var/www/
-        fi
-        rm -rf latest.tar.gz &>> /dev/null
-#CREATING A NEW MYSQL-DATABASE FOR WORDPRESS,ADDRESS NAME MUST BE EXAMPLE_COM_DB
-        db_name="_db"
-        db_root_passwd="$password"
-        mysql -u root -p$db_root_passwd << EOF
-        CREATE DATABASE ${example_com//./_}$db_name;
-        CREATE USER ${example_com//./_}@localhost;
-        SET PASSWORD FOR ${example_com//./_}@localhost=PASSWORD("$password");
-        GRANT ALL PRIVILEGES ON ${example_com//./_}$db_name.* TO ${example_com//./_}@localhost IDENTIFIED BY '$password';
-        FLUSH PRIVILEGES;
-        #exit;
-EOF
-        if [ $? -eq 0 ]; then
-                ee_info "FINALLY YOUR DATABASE SETTING HAS BEEN SETUP"
-                ee_info "Your database name assumed to be = ${example_com//./_}$db_name "
-                ee_info "And Database password = $password"
-                ee_fail "Kindly please note it down your MYSQL-ROOT password = $db_root_passwd "
-        else
-                ee_fail "Something went wrong"
-        fi
-#CREATING WP-CONFIG.PHP WITH PROPER DB CONFIGURATION.
-        cp /var/www/$example_com/wp-config-sample.php /var/www/$example_com/wp-config.php
-        sed -i "s/\(.*'DB_NAME',\)\(.*\)/\1'${example_com//./_}$db_name');/" /var/www/$example_com/wp-config.php
-        sed -i "s/\(.*'DB_USER',\)\(.*\)/\1'${example_com//./_}');/" /var/www/$example_com/wp-config.php
-        sed -i "s/\(.*'DB_PASSWORD',\)\(.*\)/\1'$password');/" /var/www/$example_com/wp-config.php
+# Install WP CLI and Basic Plugins
+curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+chmod +x wp-cli.phar
+sudo mv wp-cli.phar /usr/local/bin/wp
+sudo -u www-data wp plugin install --path="/var/www/html/$MY_DOMAIN" woocommerce two-factor-authentication limit-login-attempts-reloaded wps-hide-login onesignal-free-web-push-notifications wordpress-seo
 
-#CREATING SECURITY WP-CONFIG
-#define('AUTH_KEY',         'Ap2g08@ON7e-j]?+E.csw>-{2hkE!()#rb7gD]q|&;C4@3455AL_=1LQZ92u|IH}');
-#define('SECURE_AUTH_KEY',  'OKuteSM`D=6LVHR+cDbG_cBQ}w@-;>!{T*fy?g{.O(^{V }ygFO:Gc$m9.Iwz~I{');
-#define('LOGGED_IN_KEY',    'eKR=za5g(>GZr(`{-n8j86aM]L>Imhg@hO/kyv954MVeslHtT+sCq}^|OVQrrq^B');
-#define('NONCE_KEY',        'e_Cc;YTW,y3Cplk{4^AFcnQOvtL%+G6CYAK$=yiq;#d?%11SlkYR8CQD$C/S|8Mq');
-#define('AUTH_SALT',        'sDj8&?Blr|r_x%;wqA069^O8?5+G8@7hZD`{0|RN=kp>H)Us(]wv.6Mu,M)%cF.a');
-#define('SECURE_AUTH_SALT', 'do}{{It04FMH+Su+#[(0lC-Khvc2[DO`Xy;}348?_Ah|INH[t~5:|m.JlegN%t&g');
-#define('LOGGED_IN_SALT',   'O7|C5K-u+jkc~kf^hlf6t:|-;,5HI]d4G 2mK_h|~FZ!uifbcE:UAHExyB)$0a.+');
-#define('NONCE_SALT',       'k:d6U3,|YiE^36Un-8xl99?Uz|M[x#{yI-K?0{-- &2T-J-mfr#;|XxrQFop&^Z+');
-sed -i 's/\(.*'\''AUTH_KEY'\'',\)\(.*\)/\1'\''Ap2g08@ON7e-j]?+E.csw>-{2hkE!()#rb7gD]q|\&;C4@3455AL_=1LQZ92u|IH}'\'');/' /var/www/$example_com/wp-config.php
-sed -i 's/\(.*'\''SECURE_AUTH_KEY'\'',\)\(.*\)/\1'\''OKuteSM`D=6LVHR+cDbG_cBQ}w@-;>!{T*fy?g{.O(^{V }ygFO:Gc$m9.Iwz~I{'\'');/' /var/www/$example_com/wp-config.php
-sed -i 's/\(.*'\''LOGGED_IN_KEY'\'',\)\(.*\)/\1'\''eKR=za5g(>GZr(`{-n8j86aM]L>Imhg@hO\/kyv954MVeslHtT+sCq}^|OVQrrq^B'\'');/' /var/www/$example_com/wp-config.php
-sed -i 's/\(.*'\''NONCE_KEY'\'',\)\(.*\)/\1'\''e_Cc;YTW,y3Cplk{4^AFcnQOvtL%+G6CYAK$=yiq;#d?%11SlkYR8CQD$C\/S|8Mq'\'');/' /var/www/$example_com/wp-config.php
-sed -i 's/\(.*'\''AUTH_SALT'\'',\)\(.*\)/\1'\''sDj8\&?Blr|r_x%;wqA069^O8?5+G8@7hZD`{0|RN=kp>H)Us(]wv.6Mu,M)%cF.a'\'');/' /var/www/$example_com/wp-config.php
-sed -i 's/\(.*'\''SECURE_AUTH_SALT'\'',\)\(.*\)/\1'\''do}{{It04FMH+Su+#[(0lC-Khvc2[DO`Xy;}348?_Ah|INH[t~5:|m.JlegN%t\&g'\'');/' /var/www/$example_com/wp-config.php
-sed -i 's/\(.*'\''LOGGED_IN_SALT'\'',\)\(.*\)/\1'\''O7|C5K-u+jkc~kf^hlf6t:|-;,5HI]d4G 2mK_h|~FZ!uifbcE:UAHExyB)$0a.+'\'');/' /var/www/$example_com/wp-config.php
-sed -i 's/\(.*'\''NONCE_SALT'\'',\)\(.*\)/\1'\''k:d6U3,|YiE^36Un-8xl99?Uz|M[x#{yI-K?0{-- \&2T-J-mfr#;|XxrQFop\&^Z+'\'');/' /var/www/$example_com/wp-config.php
-#ASSIGNING PERMISSION TO DIRECTORY
-        chown www-data:www-data * -R /var/www/
-        chmod -R 755 /var/www
-        service nginx restart >> $TEMP 2>&1
-        if [ $? -eq 0 ]; then
-                ee_info "Nginx is successfull installed"
-        else
-                ee_fail "ERROR! Use:>>>sudo nginx -t<<<< in Terminal"
-        fi
-        service php7.0-fpm restart >> $TEMP 2>&1
+service nginx restart
+service php7.2-fpm restart
+service mysql restart
 
-ee_info "Kindly open your browser with this link >>> http://$example_com And perform rest of the operation. "
+# Setting up Firewall
+# Reset UFW and enable UFW
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow ssh
+sudo ufw allow 'Nginx Full'
+sudo ufw --force enable
+clear
+
+# Clean UP Unnecessary WordPress Files
+sudo rm -rf /root/wordpress
+sudo rm -f latest.tar.gz
+
+echo "WordPress Installed. Please visit your website to continue setup"
+echo
+echo
+echo "Here are your WordPress MySQL database details!"
+echo
+echo "Database Name: $dbname"
+echo "Username: $dbuser"
+echo "Password: $userpass"
+echo "Your MySQL ROOT Password is: $NEW_MYSQL_PASSWORD"
+echo
+echo
