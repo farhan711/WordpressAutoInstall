@@ -1,4 +1,4 @@
-# Wordpresstask
+# Wordpress Auto Install
 
 1) Your script will check if PHP, Mysql & Nginx are installed. If not present, missing packages will be installed.
 
@@ -28,6 +28,8 @@ sudo apt-get autoremove
 sudo apt-get autoclean
 ```
 # Mysql-server must not installed 
+
+Used MARIADB
 ```
 sudo apt-get remove --purge mysql-server 
 sudo apt-get autoremove
@@ -36,17 +38,17 @@ sudo apt-get autoclean
 
 # Installation 
 ```
-git clone https://github.com/farhan711/wordpresstask.git
+git clone https://github.com/farhan711/WordpressAutoInstall.git
 apt-add-repository ppa:ondrej/php
 apt-get update
+cd WordpressAutoInstall
 chmod +x wordpress.sh
-./wordpress.sh
+sudo ./wordpress.sh
 ```
 
 # Compatibility
-Tested and Deployed on AWS using [VM] Ubuntu 16.04.2 
+Tested and Deployed on AWS using [VM] Ubuntu 18.*
 
-Check live link here [http://52.66.136.176](http://52.66.136.176) 
 
 
 Check It's Running on NginX Server 
