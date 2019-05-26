@@ -63,4 +63,3 @@ tcp        0      0 0.0.0.0:22              0.0.0.0:*               LISTEN      
 tcp6       0      0 :::22                   :::*                    LISTEN      1291/sshd
 
 ```
-This above result is of installed state Link : [http://52.66.136.176](http://52.66.136.176) 
